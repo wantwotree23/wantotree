@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Medication Tracker App</title>
+  <title>Medication Tracker with Candy Crush</title>
   <!-- Include React -->
   <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
@@ -16,13 +16,348 @@
   <div id="root"></div>
   
   <script type="text/babel">
+    // CandyCrush Component
+    const CandyCrush = ({ onExit, medicationId }) => {
+      const boardSize = 8;
+      const candyColors = ['red', 'blue', 'green', 'yellow', 'purple', 'orange'];
+      
+      // State variables
+      const [board, setBoard] = React.useState([]);
+      const [selectedCandy, setSelectedCandy] = React.useState(null);
+      const [score, setScore] = React.useState(0);
+      const [isProcessing, setIsProcessing] = React.useState(false);
+      const [showExitConfirm, setShowExitConfirm] = React.useState(false);
+      
+      // Initialize the board
+      React.useEffect(() => {
+        initializeGame();
+      }, []);
+      
+      const initializeGame = () => {
+        const newBoard = createBoard();
+        setBoard(newBoard);
+      };
+      
+      // Create a random board
+      const createBoard = () => {
+        const initialBoard = [];
+        
+        for (let row = 0; row < boardSize; row++) {
+          const newRow = [];
+          for (let col = 0; col < boardSize; col++) {
+            newRow.push({
+              color: candyColors[Math.floor(Math.random() * candyColors.length)],
+              id: `${row}-${col}`
+            });
+          }
+          initialBoard.push(newRow);
+        }
+        
+        return initialBoard;
+      };
+      
+      // Candy selection handler
+      const handleCandyClick = async (row, col) => {
+        if (isProcessing || score >= 1000) return; // Block interactions if score is 1000 or higher
+        
+        if (selectedCandy === null) {
+          // First candy selection
+          setSelectedCandy({ row, col });
+        } else {
+          // Second candy selection - check if adjacent
+          const isAdjacent = (
+            (Math.abs(selectedCandy.row - row) === 1 && selectedCandy.col === col) ||
+            (Math.abs(selectedCandy.col - col) === 1 && selectedCandy.row === row)
+          );
+          
+          if (isAdjacent) {
+            // Try to swap
+            swapCandies(selectedCandy.row, selectedCandy.col, row, col);
+          }
+          
+          // Reset selection regardless
+          setSelectedCandy(null);
+        }
+      };
+      
+      // Swap two candies
+      const swapCandies = async (row1, col1, row2, col2) => {
+        setIsProcessing(true);
+        
+        // Create a copy of the board
+        const newBoard = [...board.map(row => [...row])];
+        
+        // Swap the candies
+        const temp = { ...newBoard[row1][col1] };
+        newBoard[row1][col1] = { ...newBoard[row2][col2], id: newBoard[row1][col1].id };
+        newBoard[row2][col2] = { ...temp, id: newBoard[row2][col2].id };
+        
+        // Update the board to show the swap
+        setBoard(newBoard);
+        
+        // Wait a moment for animation
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        // Check if this creates a match
+        if (checkForMatches(newBoard)) {
+          // Process matches
+          processMatches(newBoard);
+        } else {
+          // Swap back
+          const revertedBoard = [...newBoard.map(row => [...row])];
+          revertedBoard[row1][col1] = { ...newBoard[row2][col2], id: newBoard[row1][col1].id };
+          revertedBoard[row2][col2] = { ...newBoard[row1][col1], id: newBoard[row2][col2].id };
+          setBoard(revertedBoard);
+          
+          // End processing
+          await new Promise(resolve => setTimeout(resolve, 300));
+          setIsProcessing(false);
+        }
+      };
+      
+      // Check if there are any matches on the board
+      const checkForMatches = (boardToCheck) => {
+        // Check horizontal matches
+        for (let row = 0; row < boardSize; row++) {
+          for (let col = 0; col < boardSize - 2; col++) {
+            if (
+              boardToCheck[row][col].color &&
+              boardToCheck[row][col].color === boardToCheck[row][col + 1].color &&
+              boardToCheck[row][col].color === boardToCheck[row][col + 2].color
+            ) {
+              return true;
+            }
+          }
+        }
+        
+        // Check vertical matches
+        for (let row = 0; row < boardSize - 2; row++) {
+          for (let col = 0; col < boardSize; col++) {
+            if (
+              boardToCheck[row][col].color &&
+              boardToCheck[row][col].color === boardToCheck[row + 1][col].color &&
+              boardToCheck[row][col].color === boardToCheck[row + 2][col].color
+            ) {
+              return true;
+            }
+          }
+        }
+        
+        return false;
+      };
+      
+      // Find and mark all matches on the board
+      const findMatches = (boardToCheck) => {
+        const matches = new Set();
+        
+        // Check horizontal matches
+        for (let row = 0; row < boardSize; row++) {
+          for (let col = 0; col < boardSize - 2; col++) {
+            if (
+              boardToCheck[row][col].color &&
+              boardToCheck[row][col].color === boardToCheck[row][col + 1].color &&
+              boardToCheck[row][col].color === boardToCheck[row][col + 2].color
+            ) {
+              matches.add(`${row}-${col}`);
+              matches.add(`${row}-${col + 1}`);
+              matches.add(`${row}-${col + 2}`);
+            }
+          }
+        }
+        
+        // Check vertical matches
+        for (let row = 0; row < boardSize - 2; row++) {
+          for (let col = 0; col < boardSize; col++) {
+            if (
+              boardToCheck[row][col].color &&
+              boardToCheck[row][col].color === boardToCheck[row + 1][col].color &&
+              boardToCheck[row][col].color === boardToCheck[row + 2][col].color
+            ) {
+              matches.add(`${row}-${col}`);
+              matches.add(`${row + 1}-${col}`);
+              matches.add(`${row + 2}-${col}`);
+            }
+          }
+        }
+        
+        return matches;
+      };
+      
+      // Process matches, update score, and handle cascading
+      const processMatches = async (currentBoard) => {
+        let boardCopy = [...currentBoard.map(row => [...row])];
+        let continueProcessing = true;
+        let totalScore = 0;
+        
+        while (continueProcessing) {
+          // Find matches
+          const matches = findMatches(boardCopy);
+          
+          if (matches.size === 0) {
+            continueProcessing = false;
+            continue;
+          }
+          
+          // Add score
+          totalScore += matches.size * 10;
+          
+          // Clear matches
+          for (const match of matches) {
+            const [row, col] = match.split('-').map(Number);
+            boardCopy[row][col] = { ...boardCopy[row][col], color: null };
+          }
+          
+          // Update board to show cleared matches
+          setBoard([...boardCopy.map(row => [...row])]);
+          await new Promise(resolve => setTimeout(resolve, 300));
+          
+          // Move candies down
+          boardCopy = moveDown(boardCopy);
+          
+          // Update board to show movement
+          setBoard([...boardCopy.map(row => [...row])]);
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
+        
+        // Update total score
+        const newScore = score + totalScore;
+        setScore(newScore);
+        
+        // Check if score has reached 1000
+        if (newScore >= 1000) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+          alert(`Congratulations! You've reached ${newScore} points. Please take your next medication to continue playing.`);
+          // Disable further interactions but don't automatically exit
+          setIsProcessing(true);
+        } else {
+          // End processing normally
+          setIsProcessing(false);
+        }
+      };
+      
+      // Move candies down to fill spaces
+      const moveDown = (boardToUpdate) => {
+        const newBoard = [...boardToUpdate.map(row => [...row])];
+        
+        // Process each column
+        for (let col = 0; col < boardSize; col++) {
+          // Count empty spaces from bottom to top
+          let emptySpaces = [];
+          
+          // Find all empty spaces
+          for (let row = boardSize - 1; row >= 0; row--) {
+            if (newBoard[row][col].color === null) {
+              emptySpaces.push(row);
+            } else if (emptySpaces.length > 0) {
+              // Move this candy to the bottom-most empty space
+              const emptyRow = emptySpaces.shift();
+              newBoard[emptyRow][col].color = newBoard[row][col].color;
+              newBoard[row][col].color = null;
+              emptySpaces.push(row); // Now this row is empty
+              emptySpaces.sort((a, b) => b - a); // Re-sort to keep bottom-most first
+            }
+          }
+          
+          // Fill remaining empty spaces with new candies
+          for (const row of emptySpaces) {
+            newBoard[row][col].color = candyColors[Math.floor(Math.random() * candyColors.length)];
+          }
+        }
+        
+        return newBoard;
+      };
+      
+      // Render a candy
+      const renderCandy = (candy, row, col) => {
+        const isSelected = selectedCandy && selectedCandy.row === row && selectedCandy.col === col;
+        
+        return (
+          <div
+            key={`${row}-${col}`}
+            className={`w-12 h-12 rounded-lg flex items-center justify-center cursor-pointer ${isSelected ? 'border-4 border-white' : ''}`}
+            style={{ 
+              backgroundColor: candy.color || 'transparent',
+              transition: 'all 0.3s ease'
+            }}
+            onClick={() => handleCandyClick(row, col)}
+          >
+            {candy.color && (
+              <div className="w-8 h-8 rounded-full bg-white bg-opacity-30"></div>
+            )}
+          </div>
+        );
+      };
+      
+      return (
+        <div className="flex flex-col items-center justify-center min-h-screen bg-purple-900 text-white p-4 relative">
+          {/* Exit Button */}
+          <button 
+            className="absolute top-4 right-4 w-10 h-10 bg-red-500 text-white rounded-full flex items-center justify-center font-bold shadow-lg hover:bg-red-600 transition-colors"
+            onClick={() => setShowExitConfirm(true)}
+          >
+            X
+          </button>
+          
+          {/* Exit Confirmation Modal */}
+          {showExitConfirm && (
+            <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+              <div className="bg-white p-6 rounded-lg max-w-sm w-full text-black">
+                <h2 className="text-xl font-bold mb-4 text-center">Exit Game?</h2>
+                <p className="mb-6 text-center">
+                  Are you sure you want to exit? Your current score will be saved.
+                </p>
+                <div className="flex justify-center gap-4">
+                  <button 
+                    onClick={() => {
+                      // Exit the game and return to medication tracker
+                      onExit(score);
+                    }}
+                    className="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-lg"
+                  >
+                    Exit
+                  </button>
+                  <button 
+                    onClick={() => setShowExitConfirm(false)}
+                    className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-6 py-2 rounded-lg"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <h1 className="text-4xl font-bold mb-6">Candy Crush</h1>
+          <div className="mb-4 text-xl">Score: {score} / 1000</div>
+          
+          <div className="bg-purple-800 p-4 rounded-lg shadow-lg">
+            {board.map((row, rowIndex) => (
+              <div key={rowIndex} className="flex">
+                {row.map((candy, colIndex) => renderCandy(candy, rowIndex, colIndex))}
+              </div>
+            ))}
+          </div>
+          
+          <div className="mt-6 text-center">
+            <p className="mb-2">How to play:</p>
+            <p>Swap adjacent candies to create matches of 3 or more in a row</p>
+            <p className="mt-2 text-yellow-300">Reach 1000 points to complete your session</p>
+            {medicationId && (
+              <p className="mt-2 text-blue-300">Playing for medication #{medicationId}</p>
+            )}
+          </div>
+        </div>
+      );
+    };
+
+    // MedicationTracker Component
     const MedicationTracker = () => {
       // State for current time to force timer updates
       const [currentTime, setCurrentTime] = React.useState(new Date().getTime());
       
       // State for medications - reset on every page load for mockup purposes
       const [medications, setMedications] = React.useState([
-        { id: 1, name: '', schedule: '', timerHours: null, timerActive: false, completed: false, photoTaken: false, selfieImage: null }
+        { id: 1, name: '', schedule: '', timerHours: null, timerActive: false, completed: false, photoTaken: false, selfieImage: null, gameScore: 0 }
       ]);
       
       // State for countdown timers
@@ -35,6 +370,15 @@
       const menuRef = React.useRef(null);
       const videoRef = React.useRef(null);
       const canvasRef = React.useRef(null);
+      
+      // State for game
+      const [gameActive, setGameActive] = React.useState(false);
+      const [currentGameMedicationId, setCurrentGameMedicationId] = React.useState(null);
+      
+      // State for text reminder opt-in modal
+      const [showReminderModal, setShowReminderModal] = React.useState(false);
+      const [phoneNumber, setPhoneNumber] = React.useState('');
+      const [reminderTime, setReminderTime] = React.useState('15');
       
       // Update timer display every 100ms
       React.useEffect(() => {
@@ -59,7 +403,7 @@
               setMedications(prevMeds => 
                 prevMeds.map(med => 
                   med.id.toString() === id 
-                    ? {...med, completed: false, photoTaken: false, timerActive: false} 
+                    ? {...med, completed: false, photoTaken: false, timerActive: false, gameScore: 0} 
                     : med
                 )
               );
@@ -68,7 +412,7 @@
         }, 100);
         
         return () => clearInterval(interval);
-      }, []);
+      }, [timers]);
       
       // Format milliseconds as HH:MM:SS for display
       const formatTime = (ms) => {
@@ -233,6 +577,27 @@
         setCurrentMedicationId(null);
       };
       
+      // Start game
+      const startGame = (medicationId) => {
+        setCurrentGameMedicationId(medicationId);
+        setGameActive(true);
+      };
+      
+      // Exit game and update score
+      const exitGame = (score) => {
+        if (currentGameMedicationId) {
+          setMedications(prev => 
+            prev.map(med => 
+              med.id === currentGameMedicationId 
+                ? { ...med, gameScore: score } 
+                : med
+            )
+          );
+        }
+        setGameActive(false);
+        setCurrentGameMedicationId(null);
+      };
+      
       // Add new medication box
       const addMedication = () => {
         const newId = medications.length > 0 
@@ -241,99 +606,237 @@
           
         setMedications([
           ...medications,
-          { id: newId, name: '', schedule: '', timerHours: null, timerActive: false, completed: false, photoTaken: false, selfieImage: null }
+          { id: newId, name: '', schedule: '', timerHours: null, timerActive: false, completed: false, photoTaken: false, selfieImage: null, gameScore: 0 }
         ]);
       };
+      
+      // Handle text reminder opt-in submission
+      const handleReminderSubmit = (e) => {
+        e.preventDefault();
+        
+        // Validate phone number
+        const phonePattern = /^\(\d{3}\) \d{3}-\d{4}$/;
+        if (!phonePattern.test(phoneNumber)) {
+          alert("Please enter a valid phone number in the format (123) 456-7890");
+          return;
+        }
+        
+        // Here you would typically send this data to your backend
+        alert(`Text reminders set up successfully! You will receive reminders ${reminderTime} minutes before your medication is due.`);
+        setShowReminderModal(false);
+      };
+      
+      // Format phone number as user types
+      const formatPhoneNumber = (value) => {
+        if (!value) return value;
+        
+        // Clean input of any non-digit values
+        const phoneNumber = value.replace(/[^\d]/g, '');
+        
+        // Format phone number based on length
+        if (phoneNumber.length < 4) {
+          return `(${phoneNumber}`;
+        } else if (phoneNumber.length < 7) {
+          return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3)}`;
+        } else {
+          return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
+        }
+      };
+      
+      // Handle phone input change
+      const handlePhoneChange = (e) => {
+        const formattedPhone = formatPhoneNumber(e.target.value);
+        // Only update if the input isn't longer than a formatted US phone number
+        if (formattedPhone.length <= 14) {
+          setPhoneNumber(formattedPhone);
+        }
+      };
+      
       React.useEffect(() => {
-  const handleClickOutside = (event) => {
-    if (menuRef.current && !menuRef.current.contains(event.target)) {
-      setShowMenu(false);
-    }
-  };
+        const handleClickOutside = (event) => {
+          if (menuRef.current && !menuRef.current.contains(event.target)) {
+            setShowMenu(false);
+          }
+        };
 
-  if (showMenu) {
-    document.addEventListener("mousedown", handleClickOutside);
-  } else {
-    document.removeEventListener("mousedown", handleClickOutside);
-  }
+        if (showMenu) {
+          document.addEventListener("mousedown", handleClickOutside);
+        } else {
+          document.removeEventListener("mousedown", handleClickOutside);
+        }
 
-  return () => {
-    document.removeEventListener("mousedown", handleClickOutside);
-  };
-}, [showMenu]);
+        return () => {
+          document.removeEventListener("mousedown", handleClickOutside);
+        };
+      }, [showMenu]);
+
+      // If game is active, show the game component
+      if (gameActive) {
+        return <CandyCrush onExit={exitGame} medicationId={currentGameMedicationId} />;
+      }
 
       return (
         <div className="bg-sky-200 min-h-screen p-4">
           {/* Logo Space */}
           <div className="h-30 flex items-center justify-center mb-5">
-            
-  <img 
-    src="logo.png" 
-    alt="App Logo" 
-    className="h-40 w-auto object-contain"
-  />
-</div>
-{/* Top Right Menu Button */}
-<div className="absolute top-4 right-4 z-50">
-  <div className="relative" ref={menuRef}>
-    <button
-      onClick={() => setShowMenu(!showMenu)}
-      className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow hover:bg-gray-100"
-    >
-      <span className="text-2xl">☰</span>
-    </button>
+            <img 
+              src="logo.png" 
+              alt="App Logo" 
+              className="h-40 w-auto object-contain"
+            />
+          </div>
+          
+          {/* Top Right Menu Button */}
+          <div className="absolute top-4 right-4 z-50">
+            <div className="relative" ref={menuRef}>
+              <button
+                onClick={() => setShowMenu(!showMenu)}
+                className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow hover:bg-gray-100"
+              >
+                <span className="text-2xl">☰</span>
+              </button>
 
-    {showMenu && (
-      <div className="absolute right-0 mt-2 w-40 bg-white border rounded shadow-lg py-2">
-        <button className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100">Raffle</button>
-        <button className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100">Opt-in for text reminder</button>
-        <button className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100">Support</button>
-      </div>
-    )}
-  </div>
-</div>
+              {showMenu && (
+                <div className="absolute right-0 mt-2 w-40 bg-white border rounded shadow-lg py-2">
+                  <button className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100">Raffle</button>
+                  <button 
+                    className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
+                    onClick={() => {
+                      setShowReminderModal(true);
+                      setShowMenu(false);
+                    }}
+                  >
+                    Opt-in for text reminder
+                  </button>
+                  <button className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100">Support</button>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          {/* Text Reminder Modal */}
+          {showReminderModal && (
+            <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+              <div className="bg-white p-6 rounded-lg max-w-md w-full">
+                <h2 className="text-xl font-bold mb-4 text-center">Text Reminder Settings</h2>
+                <form onSubmit={handleReminderSubmit}>
+                  <div className="mb-4">
+                    <label className="block text-gray-700 text-sm font-bold mb-2">
+                      Phone Number
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="(123) 456-7890"
+                      value={phoneNumber}
+                      onChange={handlePhoneChange}
+                      className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
+                  <div className="mb-6">
+                    <label className="block text-gray-700 text-sm font-bold mb-2">
+                      Remind Me
+                    </label>
+                    <div className="flex gap-4">
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="reminderTime"
+                          value="15"
+                          checked={reminderTime === "15"}
+                          onChange={() => setReminderTime("15")}
+                          className="mr-2"
+                        />
+                        15 minutes prior
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="reminderTime"
+                          value="30"
+                          checked={reminderTime === "30"}
+                          onChange={() => setReminderTime("30")}
+                          className="mr-2"
+                        />
+                        30 minutes prior
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="reminderTime"
+                          value="60"
+                          checked={reminderTime === "60"}
+                          onChange={() => setReminderTime("60")}
+                          className="mr-2"
+                        />
+                        1 hour prior
+                      </label>
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setShowReminderModal(false)}
+                      className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+                    >
+                      Save Reminder Settings
+                    </button>
+                  </div>
+                </form>
+                <p className="text-xs text-gray-500 mt-4 text-center">
+                  Standard messaging and data rates may apply. You can opt-out at any time.
+                </p>
+              </div>
+            </div>
+          )}
 
+          {/* Camera Modal */}
+          {cameraActive && (
+            <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+              <div className="bg-white p-6 rounded-lg max-w-lg w-full">
+                <h2 className="text-2xl font-bold mb-4 text-center">Take Your Medication Selfie</h2>
+                <div className="relative">
+                  <video 
+                    ref={videoRef} 
+                    autoPlay 
+                    playsInline 
+                    className="w-full h-auto bg-black object-cover rounded"
+                    style={{ maxHeight: "60vh" }}
+                  ></video>
+                  <canvas ref={canvasRef} className="hidden" width="640" height="480"></canvas>
+                </div>
+                <div className="flex justify-center gap-4 mt-4">
+                  <button 
+                    onClick={takeSelfie} 
+                    className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg"
+                  >
+                    📷 Take Photo
+                  </button>
+                  <button 
+                    onClick={stopCamera} 
+                    className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-lg"
+                  >
+                    Cancel
+                  </button>
+                </div>
+                <p className="text-gray-500 text-center mt-4">
+                  Make sure you're clearly visible in the camera frame
+                </p>
+              </div>
+            </div>
+          )}
+          
           {/* Main App Container */}
           <div className="font-sans max-w-md mx-auto p-5 bg-white rounded-lg shadow">
             <h1 className="text-center py-4 bg-blue-500 text-white rounded-t-lg -mt-5 -mx-5 mb-5">
               Medication Tracker
             </h1>
-            
-            {/* Camera Modal */}
-            {cameraActive && (
-              <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-                <div className="bg-white p-6 rounded-lg max-w-lg w-full">
-                  <h2 className="text-2xl font-bold mb-4 text-center">Take Your Medication Selfie</h2>
-                  <div className="relative">
-                    <video 
-                      ref={videoRef} 
-                      autoPlay 
-                      playsInline 
-                      className="w-full h-auto bg-black object-cover rounded"
-                      style={{ maxHeight: "60vh" }}
-                    ></video>
-                    <canvas ref={canvasRef} className="hidden" width="640" height="480"></canvas>
-                  </div>
-                  <div className="flex justify-center gap-4 mt-4">
-                    <button 
-                      onClick={takeSelfie} 
-                      className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg"
-                    >
-                      📷 Take Photo
-                    </button>
-                    <button 
-                      onClick={stopCamera} 
-                      className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-lg"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                  <p className="text-gray-500 text-center mt-4">
-                    Make sure you're clearly visible in the camera frame
-                  </p>
-                </div>
-              </div>
-            )}
             
             <div className="mt-5">
               {medications.map(medication => (
@@ -395,6 +898,16 @@
                       {formatTime(timers[medication.id])}
                     </div>
                     
+                    {/* Game Score Display (if played) */}
+                    {medication.gameScore > 0 && (
+                      <div className="text-center p-2 bg-purple-100 rounded mb-2">
+                        <span className="font-bold">Game Score:</span> {medication.gameScore} / 1000
+                        {medication.gameScore >= 1000 && (
+                          <span className="ml-2 text-green-600">✓ Completed</span>
+                        )}
+                      </div>
+                    )}
+                    
                     {/* Checkbox, Selfie and Game Buttons */}
                     <div className="flex items-center gap-2">
                       <input
@@ -412,23 +925,22 @@
                       </button>
                       
                       <button
-                        disabled={!medication.completed}
+                        disabled={!medication.completed || (medication.gameScore >= 1000)}
                         onClick={() => {
-                          if (medication.completed) {
-                            alert(`Starting Candy Crush Level ${medication.id}`);
+                          if (medication.completed && medication.gameScore < 1000) {
+                            startGame(medication.id);
                           }
                         }}
-                        className={`px-8 py-4 rounded-full font-bold uppercase text-xl ${
-                          medication.completed 
-                            ? "bg-red-500 text-blue-900 border-2 border-blue-900 cursor-pointer" 
+                        className={`px-4 py-2 rounded-full font-bold uppercase ${
+                          medication.completed && medication.gameScore < 1000
+                            ? "bg-red-500 text-blue-900 border-2 border-blue-900 cursor-pointer hover:bg-red-600" 
                             : "bg-gray-300 text-gray-500 cursor-not-allowed"
                         }`}
                         style={{
-                          boxShadow: medication.completed ? '0 5px 0 #1e3a8a' : 'none',
-                          minWidth: '140px'
+                          boxShadow: medication.completed && medication.gameScore < 1000 ? '0 4px 0 #1e3a8a' : 'none',
                         }}
                       >
-                        Play
+                        {medication.gameScore >= 1000 ? "Game Completed" : "Play Candy Crush"}
                       </button>
                     </div>
                     
@@ -462,7 +974,7 @@
                       {/* Body */}
                       <div className="w-6 h-4 bg-black rounded-t-full mt-[-1px]"></div>
                     </div>
-                    <span className="block text-center mt-[3px] text-blue-900 font-bold text-[20px] leading-none">
+                    <span className="block text-center mt-[3px] text-blue-900 font-bold text-[10px] leading-none">
                       Caregiver Connect
                     </span>
                   </button>
